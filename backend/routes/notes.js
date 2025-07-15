@@ -6,11 +6,12 @@ import {
   updateNote,
   deleteNote
 } from "../controllers/noteController.js";
-import { verifyToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
 
-router.use(verifyToken);       // toutes les routes protégé
+// ❌ RETIRÉ: router.use(verifyToken); 
+// Car verifyToken est déjà appliqué dans server.js
+
 router.get("/", getNotes);
 router.get("/:id", getNote);
 router.post("/", createNote);

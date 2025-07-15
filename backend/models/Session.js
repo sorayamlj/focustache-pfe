@@ -1,4 +1,4 @@
-// backend/models/Session.js - VERSION AMÉLIORÉE
+// backend/models/Session.js - VERSION CORRIGÉE
 import mongoose from 'mongoose';
 
 const SessionSchema = new mongoose.Schema({
@@ -9,18 +9,21 @@ const SessionSchema = new mongoose.Schema({
     index: true
   },
   
-  // UNE SEULE tâche par session (array pour compatibilité)
-  taskIds: [{
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Task',
-    required: true,
+  // UNE SEULE tâche par session (array pour compatibilité) - VALIDATION CORRIGÉE
+  taskIds: {
+    type: [{
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Task',
+      required: true
+    }],
     validate: {
       validator: function(v) {
-        return v.length === 1; // Exactement une tâche
+        return Array.isArray(v) && v.length === 1; // ✅ Validation sur le tableau entier
       },
-      message: 'Une session ne peut contenir qu\'une seule tâche'
-    }
-  }],
+      message: 'Une session ne peut contenir qu\'exactement une seule tâche'
+    },
+    required: true
+  },
   
   // Timing principal
   dateDebut: {

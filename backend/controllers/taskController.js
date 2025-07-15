@@ -2,10 +2,94 @@ import Task from "../models/Task.js";
 import Session from "../models/Session.js";
 import { transporter } from "../utils/mailer.js";
 import { uploadToDrive } from "../utils/google.js";
+import { validateEmail } from "../utils/emailValidation.js"; // ✅ VOTRE VALIDATEUR
 import PDFDocument from "pdfkit";
 import fs from "fs";
 import path from "path";
 import mongoose from "mongoose";
+export const stopSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+
+    const session = await Session.findById(sessionId);
+    if (!session) return res.status(404).json({ msg: "Session non trouvée" });
+
+    if (!session.stoppedAt) {
+      session.stoppedAt = new Date();
+      session.duration = Math.floor((session.stoppedAt - session.startedAt) / 60000); // durée en minutes
+    }
+
+    await session.save();
+
+    // 🔽 Ajoute ce bloc ici :
+    const task = await Task.findById(session.task);
+    if (!task) return res.status(404).json({ msg: "Tâche liée non trouvée" });
+
+    task.timeSpent = (task.timeSpent || 0) + session.duration;
+    await task.save();
+
+    res.json({ msg: "Session arrêtée avec succès", session });
+  } catch (err) {
+    console.error("Erreur stopSession:", err);
+    res.status(500).json({ msg: "Erreur lors de l'arrêt de la session" });
+  }
+};
+
+
+// ✅ GET - Statistiques détaillées par état, module, catégorie (en heures et minutes)
+export const getDetailedStats = async (req, res) => {
+  try {
+    const userEmail = req.user.email;
+
+    const tasks = await Task.find({
+      owners: userEmail,
+      statut: { $ne: "supprimée" }
+    }).select("statut module categorie dureeEstimee");
+
+    const groupAndSum = (key) => {
+      const grouped = {};
+      for (const task of tasks) {
+        const k = task[key] || "Non défini";
+        if (!grouped[k]) grouped[k] = 0;
+        grouped[k] += task.dureeEstimee || 0;
+      }
+      return grouped;
+    };
+
+    const convertToHMin = (minutes) => {
+      const h = Math.floor(minutes / 60);
+      const m = minutes % 60;
+      return `${h > 0 ? h + "h " : ""}${m}min`;
+    };
+
+    const tempsParEtat = Object.entries(groupAndSum("statut")).map(([etat, min]) => ({
+      etat,
+      minutes: min,
+      format: convertToHMin(min)
+    }));
+
+    const tempsParModule = Object.entries(groupAndSum("module")).map(([mod, min]) => ({
+      module: mod,
+      minutes: min,
+      format: convertToHMin(min)
+    }));
+
+    const tempsParCategorie = Object.entries(groupAndSum("categorie")).map(([cat, min]) => ({
+      categorie: cat,
+      minutes: min,
+      format: convertToHMin(min)
+    }));
+
+    res.json({
+      tempsParEtat,
+      tempsParModule,
+      tempsParCategorie
+    });
+  } catch (err) {
+    console.error("Erreur getDetailedStats:", err);
+    res.status(500).json({ msg: "Erreur lors du calcul des statistiques détaillées" });
+  }
+};
 
 // ✅ GET toutes les tâches de l'utilisateur avec pagination et filtres
 export const getTasks = async (req, res) => {
@@ -308,7 +392,7 @@ export const searchTasks = async (req, res) => {
   }
 };
 
-// ✅ PUT partager une tâche avec un autre utilisateur Gmail (amélioré)
+// ✅ PUT partager une tâche avec un autre utilisateur Gmail/Universitaire (UTILISE VOTRE VALIDATEUR)
 export const shareTask = async (req, res) => {
   const { id } = req.params;
   const { email } = req.body;
@@ -318,10 +402,27 @@ export const shareTask = async (req, res) => {
     return res.status(400).json({ msg: "ID de tâche invalide" });
   }
 
-  // ✅ Validation email plus stricte
-  const gmailRegex = /^[a-zA-Z0-9._%+-]+@gmail\.com$/;
-  if (!email || !gmailRegex.test(email)) {
-    return res.status(400).json({ msg: "Adresse Gmail valide requise" });
+  // ✅ UTILISATION DE VOTRE VALIDATEUR ASYNC
+  try {
+    const emailValidation = await validateEmail(email);
+    if (!emailValidation.isValid) {
+      return res.status(400).json({ 
+        msg: emailValidation.reason,
+        examples: [
+          "exemple@gmail.com", 
+          "etudiant@um5r.ac.ma", 
+          "prof@uh2c.ac.ma", 
+          "student@uca.ac.ma",
+          "user@ump.ac.ma"
+        ]
+      });
+    }
+  } catch (validationError) {
+    console.error("Erreur validation email:", validationError);
+    return res.status(400).json({ 
+      msg: "Erreur lors de la validation de l'email",
+      details: validationError.message
+    });
   }
 
   // ✅ Empêcher de partager avec soi-même
@@ -475,6 +576,53 @@ export const getTaskStats = async (req, res) => {
     });
   }
 };
+// ✅ GET - Exporter UNE tâche en PDF
+
+export const exportSingleTask = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ msg: "ID de tâche invalide" });
+    }
+
+    const task = await Task.findOne({
+      _id: id,
+      owners: req.user.email,
+      statut: { $ne: 'supprimée' }
+    });
+
+    if (!task) {
+      return res.status(404).json({ msg: "Tâche non trouvée" });
+    }
+
+    const doc = new PDFDocument({ margin: 40 });
+
+    // ✅ Configuration des headers
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename=tache-${id}.pdf`);
+
+    // ✅ Envoie direct du PDF au client
+    doc.pipe(res);
+
+    doc.fontSize(20).text("FocusTâche - Export de tâche", { align: 'center' });
+    doc.moveDown();
+
+    doc.fontSize(14).text(`Titre : ${task.titre}`);
+    doc.text(`Module : ${task.module}`);
+    doc.text(`Priorité : ${task.priorite}`);
+    doc.text(`Statut : ${task.statut}`);
+    doc.text(`Échéance : ${new Date(task.dateEcheance).toLocaleDateString('fr-FR')}`);
+    if (task.description) doc.text(`Description : ${task.description}`);
+    doc.moveDown();
+    doc.text(`Exporté par : ${req.user.email}`, { align: 'right' });
+
+    doc.end(); // 🚀 Lance la génération
+  } catch (err) {
+    console.error("Erreur exportSingleTask:", err);
+    res.status(500).json({ msg: "Erreur lors de l'export", error: err.message });
+  }
+};
 
 // ✅ GET exporter les tâches en PDF (amélioré)
 export const exportTasks = async (req, res) => {
@@ -555,6 +703,7 @@ export const exportTasks = async (req, res) => {
         console.warn("Avertissement upload Drive:", driveError.message);
         // Ne pas faire échouer l'export si Drive échoue
       }
+console.log("📦 Export PDF prêt à être envoyé :", filePath);
 
       // ✅ Téléchargement et nettoyage
       res.download(filePath, `mes-taches-${new Date().toISOString().split('T')[0]}.pdf`, (err) => {

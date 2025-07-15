@@ -1,20 +1,17 @@
-// src/components/Calendar.jsx
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar as CalendarIcon, 
   ChevronLeft, 
   ChevronRight,
   Clock,
-  AlertCircle,
-  CheckCircle2,
   X,
   BookOpen,
   Briefcase,
   User,
   Heart,
-  Star,
-  Calendar as CalIcon
+  FileText
 } from 'lucide-react';
+
 
 const Calendar = () => {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -35,16 +32,10 @@ const Calendar = () => {
     work: Briefcase,
     personal: User,
     health: Heart,
-    other: Star
+    other: FileText
   };
 
-  const statusColors = {
-    pending: 'text-yellow-400',
-    completed: 'text-green-400',
-    overdue: 'text-red-400'
-  };
-
-  // ✅ Fonctions de mapping pour adapter vos données MongoDB
+  // Fonctions de mapping pour convertir depuis votre API
   const mapPriority = (priorite) => {
     switch(priorite) {
       case 'haute': return 'high';
@@ -58,7 +49,6 @@ const Calendar = () => {
     switch(categorie) {
       case 'universitaire': return 'academic';
       case 'para-universitaire': return 'work';
-      case 'autre': return 'other';
       default: return 'other';
     }
   };
@@ -72,111 +62,67 @@ const Calendar = () => {
     }
   };
 
-  const showNotification = (message, type = 'info', duration = 3000) => {
-    const notification = document.createElement('div');
-    notification.className = `fixed top-4 right-4 z-50 p-4 rounded-xl text-white font-medium max-w-sm backdrop-blur-sm border transform transition-all duration-300 ${
-      type === 'success' ? 'bg-green-600/90 border-green-500/50' : 
-      type === 'error' ? 'bg-red-600/90 border-red-500/50' : 
-      'bg-blue-600/90 border-blue-500/50'
-    }`;
-    
-    notification.innerHTML = `
-      <div class="flex items-start gap-3">
-        <div class="text-xl">
-          ${type === 'success' ? '✓' : type === 'error' ? '⚠' : 'ℹ'}
-        </div>
-        <div class="flex-1">${message}</div>
-      </div>
-    `;
-    
-    document.body.appendChild(notification);
-    setTimeout(() => notification.style.transform = 'translateX(0)', 10);
-    setTimeout(() => {
-      notification.style.transform = 'translateX(100%)';
-      setTimeout(() => notification.remove(), 300);
-    }, duration);
-  };
-
   useEffect(() => {
     loadTasks();
   }, []);
 
   const loadTasks = async () => {
-    console.log('🔄 Chargement des tâches...');
     setIsLoading(true);
     
     try {
-      console.log('📡 Appel API vers: http://localhost:5000/api/tasks');
-      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        window.location.href = '/login';
+        return;
+      }
+
       const response = await fetch('http://localhost:5000/api/tasks', {
         method: 'GET',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         }
       });
       
-      console.log('📨 Réponse reçue:', response.status, response.statusText);
+      if (response.status === 401) {
+        localStorage.removeItem('token');
+        window.location.href = '/login';
+        return;
+      }
       
       if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status} - ${response.statusText}`);
+        throw new Error(`Erreur HTTP: ${response.status}`);
       }
       
-      const rawData = await response.text();
-      console.log('📄 Données brutes:', rawData.substring(0, 200) + '...');
-      
-      const data = JSON.parse(rawData);
-      console.log('✅ Données parsées:', data);
-      
+      const data = await response.json();
       const tasksArray = data.tasks || data;
-      console.log('📋 Tâches trouvées:', tasksArray.length, 'tâches');
       
       if (!Array.isArray(tasksArray)) {
-        throw new Error('Les données reçues ne sont pas un tableau');
-      }
-      
-      if (tasksArray.length === 0) {
-        console.log('ℹ️ Aucune tâche trouvée');
+        console.error('Format de données invalide:', data);
         setTasks([]);
         return;
       }
       
-      const adaptedTasks = tasksArray.map((task, index) => {
-        console.log(`🔄 Adaptation tâche ${index + 1}:`, task.titre);
-        
-        return {
-          id: task._id,
-          title: task.titre,
-          description: task.description || '',
-          deadline: task.dateEcheance ? task.dateEcheance.split('T')[0] : new Date().toISOString().split('T')[0],
-          time: task.heure || '',
-          priority: mapPriority(task.priorite),
-          category: mapCategory(task.categorie),
-          status: mapStatus(task.statut),
-          createdAt: task.createdAt,
-          module: task.module || '',
-          owners: task.owners || []
-        };
-      });
+      // Conversion des tâches pour le calendrier
+      const adaptedTasks = tasksArray.map(task => ({
+        id: task._id,
+        title: task.titre,
+        description: task.description || '',
+        deadline: task.dateEcheance ? task.dateEcheance.split('T')[0] : new Date().toISOString().split('T')[0],
+        time: task.heure || '',
+        priority: mapPriority(task.priorite),
+        category: mapCategory(task.categorie),
+        status: mapStatus(task.statut),
+        createdAt: task.createdAt,
+        module: task.module || '',
+        owners: task.owners || []
+      }));
       
-      console.log('✅ Tâches adaptées:', adaptedTasks.length, 'tâches');
       setTasks(adaptedTasks);
-      showNotification(`${adaptedTasks.length} tâches chargées avec succès`, 'success');
+      console.log('✅ Tâches chargées:', adaptedTasks.length);
       
     } catch (error) {
-      console.error('❌ Erreur détaillée:', error);
-      
-      let errorMessage = 'Erreur de chargement des tâches';
-      if (error.message.includes('404')) {
-        errorMessage = 'API non trouvée - Vérifiez que le backend est démarré sur le port 5000';
-      } else if (error.message.includes('fetch')) {
-        errorMessage = 'Impossible de contacter le serveur - Backend démarré ?';
-      } else if (error.message.includes('JSON')) {
-        errorMessage = 'Réponse invalide du serveur - Vérifiez les routes API';
-      } else if (error.message.includes('tableau')) {
-        errorMessage = 'Format de données incorrect reçu du serveur';
-      }
-      
-      showNotification(errorMessage, 'error', 5000);
+      console.error('❌ Erreur chargement tâches:', error);
       setTasks([]);
     } finally {
       setIsLoading(false);
@@ -193,17 +139,21 @@ const Calendar = () => {
 
     const days = [];
     
+    // Jours du mois précédent
     for (let i = startingDayOfWeek - 1; i >= 0; i--) {
       const prevDate = new Date(year, month, -i);
       days.push({ date: prevDate, isCurrentMonth: false });
     }
 
+    // Jours du mois actuel
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(year, month, day);
       days.push({ date: currentDate, isCurrentMonth: true });
     }
 
-    const remainingCells = 42 - days.length;
+    // Jours du mois suivant pour compléter la grille
+    const totalCells = 35;
+    const remainingCells = totalCells - days.length;
     for (let day = 1; day <= remainingCells; day++) {
       const nextDate = new Date(year, month + 1, day);
       days.push({ date: nextDate, isCurrentMonth: false });
@@ -234,12 +184,24 @@ const Calendar = () => {
     return taskDate < today && task.status !== 'completed';
   };
 
+  const handleTaskClick = (task, date) => {
+    setSelectedTask(task);
+    setSelectedDate(date);
+    setShowTaskModal(true);
+  };
+
+  const closeModal = () => {
+    setShowTaskModal(false);
+    setSelectedTask(null);
+    setSelectedDate(null);
+  };
+
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-pink-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white text-lg">Chargement du calendrier...</p>
+          <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Chargement de votre calendrier...</p>
         </div>
       </div>
     );
@@ -253,59 +215,55 @@ const Calendar = () => {
   const dayNames = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-pink-900 to-slate-900">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gray-900">
+      <div className="max-w-7xl mx-auto p-4">
         
         {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-r from-pink-500 to-rose-500 rounded-xl">
-                <CalendarIcon className="w-8 h-8 text-white" />
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-pink-500 rounded">
+                <CalendarIcon className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-4xl font-bold text-white bg-gradient-to-r from-pink-400 to-rose-400 bg-clip-text text-transparent">
-                  Mon Calendrier
-                </h1>
-                <p className="text-slate-400 text-lg">
-                  Vue d'ensemble de vos tâches programmées
-                </p>
+                <h1 className="text-2xl font-bold text-white">Mon Calendrier</h1>
+                <p className="text-gray-400">{tasks.length} tâches au total</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-4 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           
           {/* Calendrier principal */}
-          <div className="xl:col-span-3">
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
+          <div className="lg:col-span-3">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
               
               {/* Navigation du mois */}
               <div className="flex items-center justify-between mb-6">
                 <button
                   onClick={() => navigateMonth(-1)}
-                  className="p-3 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
                 >
-                  <ChevronLeft className="w-6 h-6" />
+                  <ChevronLeft className="w-5 h-5" />
                 </button>
                 
-                <h2 className="text-3xl font-bold text-white">
+                <h2 className="text-xl font-bold text-white">
                   {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
                 </h2>
                 
                 <button
                   onClick={() => navigateMonth(1)}
-                  className="p-3 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-colors"
+                  className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
                 >
-                  <ChevronRight className="w-6 h-6" />
+                  <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
 
               {/* Jours de la semaine */}
               <div className="grid grid-cols-7 gap-2 mb-4">
                 {dayNames.map(day => (
-                  <div key={day} className="text-center text-slate-300 font-semibold py-3 text-lg">
+                  <div key={day} className="text-center text-gray-300 font-medium py-2">
                     {day}
                   </div>
                 ))}
@@ -315,31 +273,28 @@ const Calendar = () => {
               <div className="grid grid-cols-7 gap-2">
                 {days.map((day, index) => {
                   const dayTasks = getTasksForDate(day.date);
-                  const hasOverdue = dayTasks.some(task => isOverdue(task));
                   
                   return (
                     <div
                       key={index}
+                      className={`
+                        min-h-[100px] p-2 rounded-lg border transition-colors cursor-pointer
+                        ${day.isCurrentMonth 
+                          ? 'bg-gray-700 border-gray-600 hover:bg-gray-600' 
+                          : 'bg-gray-800 border-gray-700 text-gray-500'
+                        }
+                        ${isToday(day.date) ? 'ring-2 ring-pink-500' : ''}
+                      `}
                       onClick={() => {
                         if (dayTasks.length > 0) {
                           setSelectedDate(day.date);
                           setShowTaskModal(true);
                         }
                       }}
-                      className={`
-                        min-h-[120px] p-3 rounded-xl border transition-all duration-300 
-                        ${day.isCurrentMonth 
-                          ? 'bg-white/5 border-white/10 hover:bg-white/10' 
-                          : 'bg-slate-800/20 border-slate-700/50 text-slate-500'
-                        }
-                        ${isToday(day.date) ? 'ring-2 ring-pink-500 bg-pink-500/10' : ''}
-                        ${hasOverdue ? 'ring-1 ring-red-500/50' : ''}
-                        ${dayTasks.length > 0 ? 'cursor-pointer hover:shadow-lg hover:-translate-y-1' : ''}
-                      `}
                     >
-                      <div className={`text-lg font-bold mb-3 ${
+                      <div className={`text-sm font-medium mb-2 ${
                         isToday(day.date) ? 'text-pink-400' : 
-                        day.isCurrentMonth ? 'text-white' : 'text-slate-600'
+                        day.isCurrentMonth ? 'text-white' : 'text-gray-500'
                       }`}>
                         {day.date.getDate()}
                       </div>
@@ -350,36 +305,38 @@ const Calendar = () => {
                           return (
                             <div
                               key={task.id}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleTaskClick(task, day.date);
+                              }}
                               className={`
-                                text-xs p-2 rounded-lg flex items-center gap-2 transition-all hover:scale-105
+                                text-xs p-2 rounded-lg flex items-center gap-2 mb-1 transition-all hover:scale-105
                                 ${task.status === 'completed' 
-                                  ? 'bg-green-500/20 text-green-300' 
+                                  ? 'bg-green-600/90 text-white shadow-sm' 
                                   : isOverdue(task)
-                                    ? 'bg-red-500/20 text-red-300'
-                                    : 'bg-pink-500/20 text-pink-300'
+                                    ? 'bg-red-600/90 text-white shadow-sm'
+                                    : 'bg-pink-600/90 text-white shadow-sm'
                                 }
                               `}
                             >
                               <div className={`w-2 h-2 rounded-full flex-shrink-0 ${priorityColors[task.priority]}`}></div>
                               <CategoryIcon className="w-3 h-3 flex-shrink-0" />
-                              <span className={`truncate flex-1 ${task.status === 'completed' ? 'line-through' : ''}`}>
+                              <span className={`truncate flex-1 font-medium ${task.status === 'completed' ? 'line-through opacity-75' : ''}`}>
                                 {task.title}
                               </span>
                               {task.time && (
-                                <span className="text-xs opacity-75">{task.time.slice(0,5)}</span>
+                                <span className="text-xs opacity-90 bg-black/20 px-1 rounded">
+                                  {task.time.slice(0,5)}
+                                </span>
                               )}
                             </div>
                           );
                         })}
                         
                         {dayTasks.length > 2 && (
-                          <div className="text-xs text-slate-400 text-center py-1 bg-white/5 rounded-lg">
-                            +{dayTasks.length - 2} autre{dayTasks.length - 2 > 1 ? 's' : ''}
+                          <div className="text-xs text-gray-400 text-center py-1 bg-gray-600 rounded">
+                            +{dayTasks.length - 2} autres
                           </div>
-                        )}
-
-                        {dayTasks.length === 0 && day.isCurrentMonth && (
-                          <div className="h-16"></div>
                         )}
                       </div>
                     </div>
@@ -389,286 +346,181 @@ const Calendar = () => {
             </div>
           </div>
 
-          {/* Panneau latéral - Résumé */}
-          <div className="space-y-6">
+          {/* Panneau latéral */}
+          <div className="space-y-4">
             
-            {/* Aperçu rapide */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <CalendarIcon className="w-5 h-5" />
-                Ce mois-ci
+            {/* Résumé */}
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                📊 Résumé
               </h3>
               <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Total des tâches</span>
-                  <span className="text-white font-semibold text-lg">{tasks.length}</span>
+                <div className="flex justify-between items-center p-2 bg-gray-700/30 rounded">
+                  <span className="text-gray-300">Total</span>
+                  <span className="text-white font-bold text-lg">{tasks.length}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">En cours</span>
-                  <span className="text-yellow-400 font-semibold">
-                    {tasks.filter(t => t.status === 'pending').length}
-                  </span>
+                <div className="flex justify-between items-center p-2 bg-gray-700/30 rounded">
+                  <span className="text-gray-300">En cours</span>
+                  <span className="text-yellow-400 font-bold">{tasks.filter(t => t.status === 'pending').length}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">Terminées</span>
-                  <span className="text-green-400 font-semibold">
-                    {tasks.filter(t => t.status === 'completed').length}
-                  </span>
+                <div className="flex justify-between items-center p-2 bg-gray-700/30 rounded">
+                  <span className="text-gray-300">Terminées</span>
+                  <span className="text-green-400 font-bold">{tasks.filter(t => t.status === 'completed').length}</span>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-slate-400">En retard</span>
-                  <span className="text-red-400 font-semibold">
-                    {tasks.filter(t => isOverdue(t)).length}
-                  </span>
+                <div className="flex justify-between items-center p-2 bg-gray-700/30 rounded">
+                  <span className="text-gray-300">En retard</span>
+                  <span className="text-red-400 font-bold">{tasks.filter(t => isOverdue(t)).length}</span>
                 </div>
               </div>
             </div>
 
-            {/* Prochaines échéances */}
-            <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-xl p-6">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <Clock className="w-5 h-5" />
-                Prochaines échéances
+            {/* Tâches du jour */}
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6">
+              <h3 className="text-lg font-semibold text-white mb-4">
+                📅 Aujourd'hui
               </h3>
-              <div className="space-y-3 max-h-80 overflow-y-auto">
-                {tasks
-                  .filter(task => task.status === 'pending')
-                  .sort((a, b) => new Date(a.deadline) - new Date(b.deadline))
-                  .slice(0, 5)
-                  .map(task => {
-                    const CategoryIcon = categoryIcons[task.category];
-                    const daysUntil = Math.ceil((new Date(task.deadline) - new Date()) / (1000 * 60 * 60 * 24));
-                    
-                    return (
-                      <div
-                        key={task.id}
-                        onClick={() => {
-                          setSelectedTask(task);
-                          setShowTaskModal(true);
-                        }}
-                        className="p-3 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 cursor-pointer transition-all group"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-3 h-3 rounded-full ${priorityColors[task.priority]} mt-2 flex-shrink-0`}></div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <CategoryIcon className="w-4 h-4 text-slate-400" />
-                              <h4 className="font-medium text-white truncate">{task.title}</h4>
-                            </div>
-                            
-                            <div className="flex items-center gap-2 text-xs">
-                              <CalIcon className="w-3 h-3 text-slate-400" />
-                              <span className="text-slate-400">
-                                {new Date(task.deadline).toLocaleDateString('fr-FR')}
-                              </span>
-                              {task.time && (
-                                <>
-                                  <Clock className="w-3 h-3 text-slate-400" />
-                                  <span className="text-slate-400">{task.time}</span>
-                                </>
-                              )}
-                            </div>
-                            
-                            <div className={`text-xs mt-1 ${
-                              daysUntil < 0 ? 'text-red-400' : 
-                              daysUntil === 0 ? 'text-orange-400' : 
-                              daysUntil <= 3 ? 'text-yellow-400' : 'text-slate-400'
-                            }`}>
-                              {daysUntil < 0 ? `${Math.abs(daysUntil)} jour${Math.abs(daysUntil) > 1 ? 's' : ''} de retard` :
-                               daysUntil === 0 ? 'Aujourd\'hui' :
-                               daysUntil === 1 ? 'Demain' :
-                               `Dans ${daysUntil} jours`}
-                            </div>
+              {(() => {
+                const todayTasks = getTasksForDate(new Date());
+                return todayTasks.length > 0 ? (
+                  <div className="space-y-2">
+                    {todayTasks.slice(0, 3).map(task => {
+                      const CategoryIcon = categoryIcons[task.category];
+                      return (
+                        <div
+                          key={task.id}
+                          className={`p-3 rounded-lg border cursor-pointer hover:scale-[1.02] transition-transform ${
+                            task.status === 'completed' 
+                              ? 'bg-green-600/20 border-green-600/30' 
+                              : 'bg-pink-600/20 border-pink-600/30'
+                          }`}
+                          onClick={() => handleTaskClick(task, new Date())}
+                        >
+                          <div className="flex items-center gap-2">
+                            <CategoryIcon className="w-4 h-4 text-pink-400" />
+                            <span className={`text-white font-medium ${task.status === 'completed' ? 'line-through' : ''}`}>
+                              {task.title}
+                            </span>
                           </div>
+                          {task.time && (
+                            <div className="text-sm text-gray-400 mt-1">
+                              🕐 {task.time}
+                            </div>
+                          )}
                         </div>
+                      );
+                    })}
+                    {todayTasks.length > 3 && (
+                      <div className="text-center text-gray-400 text-sm">
+                        +{todayTasks.length - 3} autres tâches
                       </div>
-                    );
-                  })}
-                
-                {tasks.filter(task => task.status === 'pending').length === 0 && (
-                  <div className="text-center py-6">
-                    <CheckCircle2 className="w-12 h-12 text-green-400 mx-auto mb-3" />
-                    <p className="text-slate-400">Toutes les tâches sont terminées !</p>
+                    )}
                   </div>
-                )}
-              </div>
+                ) : (
+                  <p className="text-gray-400 text-center py-4">
+                    Aucune tâche aujourd'hui 🎉
+                  </p>
+                );
+              })()}
             </div>
           </div>
         </div>
 
-        {/* Modal de détail des tâches */}
+        {/* Modal pour afficher les détails des tâches */}
         {showTaskModal && (selectedTask || selectedDate) && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-slate-800/95 backdrop-blur-sm border border-white/10 rounded-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full max-h-[80vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-white">
+                  {selectedTask ? 'Détails de la tâche' : `Tâches du ${selectedDate?.toLocaleDateString('fr-FR')}`}
+                </h3>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-400 hover:text-white"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              
               {selectedTask ? (
-                <>
-                  <div className="flex items-start justify-between mb-6">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-4 h-4 rounded-full ${priorityColors[selectedTask.priority]}`}></div>
-                      <h2 className="text-2xl font-bold text-white">{selectedTask.title}</h2>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setShowTaskModal(false);
-                        setSelectedTask(null);
-                      }}
-                      className="p-2 bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
+                // Affichage d'une tâche spécifique
+                <div className="space-y-4">
+                  <div>
+                    <h4 className="text-white font-medium">{selectedTask.title}</h4>
                     {selectedTask.description && (
+                      <p className="text-gray-300 mt-2">{selectedTask.description}</p>
+                    )}
+                  </div>
+                  
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-400">Module:</span>
+                      <div className="text-white">{selectedTask.module}</div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Priorité:</span>
+                      <div className={`inline-block px-2 py-1 rounded text-white text-xs ${priorityColors[selectedTask.priority]}`}>
+                        {selectedTask.priority}
+                      </div>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Échéance:</span>
+                      <div className="text-white">{new Date(selectedTask.deadline).toLocaleDateString('fr-FR')}</div>
+                    </div>
+                    {selectedTask.time && (
                       <div>
-                        <h3 className="text-white font-medium mb-2">Description</h3>
-                        <p className="text-slate-300 bg-white/5 rounded-lg p-4">{selectedTask.description}</p>
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-white/5 rounded-lg p-4">
-                        <h3 className="text-white font-medium mb-2">Date d'échéance</h3>
-                        <div className="flex items-center gap-2 text-slate-300">
-                          <CalIcon className="w-4 h-4" />
-                          <span>{new Date(selectedTask.deadline).toLocaleDateString('fr-FR')}</span>
-                        </div>
-                      </div>
-
-                      {selectedTask.time && (
-                        <div className="bg-white/5 rounded-lg p-4">
-                          <h3 className="text-white font-medium mb-2">Heure</h3>
-                          <div className="flex items-center gap-2 text-slate-300">
-                            <Clock className="w-4 h-4" />
-                            <span>{selectedTask.time}</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between py-4 bg-white/5 rounded-lg px-4">
-                      <div className="flex items-center gap-4">
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-400">Statut:</span>
-                          <span className={statusColors[selectedTask.status]}>
-                            {selectedTask.status === 'completed' ? 'Terminée' : 
-                             isOverdue(selectedTask) ? 'En retard' : 'En cours'}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-slate-400">Catégorie:</span>
-                          <span className="text-white capitalize">{selectedTask.category}</span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {isOverdue(selectedTask) && selectedTask.status !== 'completed' && (
-                      <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4">
-                        <div className="flex items-center gap-3 text-red-300">
-                          <AlertCircle className="w-5 h-5" />
-                          <span>Cette tâche est en retard</span>
-                        </div>
+                        <span className="text-gray-400">Heure:</span>
+                        <div className="text-white">{selectedTask.time}</div>
                       </div>
                     )}
                   </div>
-                </>
+                  
+                  <div>
+                    <span className="text-gray-400">Statut:</span>
+                    <div className={`inline-block px-2 py-1 rounded text-white text-xs ml-2 ${
+                      selectedTask.status === 'completed' ? 'bg-green-600' : 'bg-yellow-600'
+                    }`}>
+                      {selectedTask.status === 'completed' ? 'Terminée' : 'En cours'}
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <>
-                  <div className="flex items-center justify-between mb-6">
-                    <h2 className="text-2xl font-bold text-white">
-                      {selectedDate?.toLocaleDateString('fr-FR', { 
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric'
-                      })}
-                    </h2>
-                    <button
-                      onClick={() => {
-                        setShowTaskModal(false);
-                        setSelectedDate(null);
-                      }}
-                      className="p-2 bg-slate-700 text-slate-400 hover:text-white rounded-lg transition-colors"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {getTasksForDate(selectedDate).length > 0 ? (
-                      getTasksForDate(selectedDate).map(task => {
-                        const CategoryIcon = categoryIcons[task.category];
-                        return (
-                          <div
-                            key={task.id}
-                            onClick={() => setSelectedTask(task)}
-                            className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 cursor-pointer transition-all"
-                          >
-                            <div className="flex items-start gap-3">
-                              <div className={`w-3 h-3 rounded-full ${priorityColors[task.priority]} mt-2`}></div>
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-2">
-                                  <CategoryIcon className="w-4 h-4 text-slate-400" />
-                                  <h4 className={`font-medium ${task.status === 'completed' ? 'text-green-400 line-through' : 'text-white'}`}>
-                                    {task.title}
-                                  </h4>
-                                </div>
-                                {task.description && (
-                                  <p className="text-slate-300 text-sm mb-2">{task.description}</p>
-                                )}
-                                <div className="flex items-center gap-2 text-xs text-slate-400">
-                                  {task.time && (
-                                    <>
-                                      <Clock className="w-3 h-3" />
-                                      <span>{task.time}</span>
-                                    </>
-                                  )}
-                                  <span className={statusColors[task.status]}>
-                                    {task.status === 'completed' ? 'Terminée' : 
-                                     isOverdue(task) ? 'En retard' : 'En cours'}
-                                  </span>
-                                </div>
-                              </div>
-                            </div>
+                // Affichage de toutes les tâches d'une date
+                <div className="space-y-3">
+                  {getTasksForDate(selectedDate).map(task => {
+                    const CategoryIcon = categoryIcons[task.category];
+                    return (
+                      <div
+                        key={task.id}
+                        className={`p-3 rounded-lg border cursor-pointer hover:bg-gray-700 ${
+                          task.status === 'completed' 
+                            ? 'bg-green-600/20 border-green-600/30' 
+                            : isOverdue(task)
+                              ? 'bg-red-600/20 border-red-600/30'
+                              : 'bg-pink-600/20 border-pink-600/30'
+                        }`}
+                        onClick={() => setSelectedTask(task)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <CategoryIcon className="w-4 h-4 text-pink-400" />
+                          <span className={`text-white font-medium ${task.status === 'completed' ? 'line-through' : ''}`}>
+                            {task.title}
+                          </span>
+                          <div className={`w-2 h-2 rounded-full ml-auto ${priorityColors[task.priority]}`}></div>
+                        </div>
+                        {task.time && (
+                          <div className="text-sm text-gray-400 mt-1">
+                            🕐 {task.time}
                           </div>
-                        );
-                      })
-                    ) : (
-                      <div className="text-center py-8">
-                        <CalIcon className="w-12 h-12 text-slate-400 mx-auto mb-3" />
-                        <p className="text-slate-400">Aucune tâche programmée pour cette date</p>
+                        )}
                       </div>
-                    )}
-                  </div>
-                </>
+                    );
+                  })}
+                </div>
               )}
             </div>
           </div>
         )}
       </div>
-
-      {/* Styles CSS */}
-      <style dangerouslySetInnerHTML={{
-        __html: `
-          ::-webkit-scrollbar {
-            width: 6px;
-          }
-          
-          ::-webkit-scrollbar-track {
-            background: rgba(0, 0, 0, 0.1);
-            border-radius: 3px;
-          }
-          
-          ::-webkit-scrollbar-thumb {
-            background: rgba(236, 72, 153, 0.5);
-            border-radius: 3px;
-          }
-          
-          ::-webkit-scrollbar-thumb:hover {
-            background: rgba(236, 72, 153, 0.7);
-          }
-        `
-      }} />
     </div>
   );
 };

@@ -1,26 +1,89 @@
-// src/components/Login.jsx - VERSION AVEC INSCRIPTION
+// src/components/Login.jsx - VERSION SIMPLIFIÉE
 import React, { useState } from 'react';
 
 const Login = ({ onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [nom, setNom] = useState(''); // Pour l'inscription
+  const [nom, setNom] = useState('');
+  const [studentInfo, setStudentInfo] = useState({
+    university: '',
+    faculty: '',
+    city: ''
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState('');
-  const [isRegisterMode, setIsRegisterMode] = useState(false); // État pour basculer
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+
+  // Universités marocaines
+  const universities = [
+    'Université Mohammed V Rabat',
+    'Université Hassan II Casablanca',
+    'Université Cadi Ayyad Marrakech',
+    'Université Sidi Mohamed Ben Abdellah Fès',
+    'Université Mohammed Premier Oujda',
+    'Université Ibn Tofail Kenitra',
+    'Université Abdelmalek Essaadi Tétouan',
+    'Université Moulay Ismail Meknès',
+    'Al Akhawayn University',
+    'Université Internationale de Rabat (UIR)',
+    'EMSI'
+  ];
+
+  const cities = ['Rabat', 'Casablanca', 'Marrakech', 'Fès', 'Oujda', 'Kenitra', 'Tétouan', 'Meknès', 'Agadir', 'Tanger'];
+
+  // ✅ VALIDATION EMAIL CÔTÉ FRONTEND
+  const validateEmailSimple = (email) => {
+    if (!email) return { isValid: false, reason: 'Email requis', type: null };
+
+    const emailLower = email.toLowerCase().trim();
+    
+    // Format de base
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailLower)) {
+      return { isValid: false, reason: 'Format d\'email invalide', type: null };
+    }
+
+    // Gmail accepté
+    if (emailLower.endsWith('@gmail.com')) {
+      return { isValid: true, type: 'gmail', reason: 'Gmail détecté' };
+    }
+
+    // Universités marocaines
+    const universityDomains = [
+      '.ac.ma', '@aui.ma', '@emsi.ma', '@uir.ac.ma'
+    ];
+    
+    const isUniversity = universityDomains.some(domain => emailLower.includes(domain));
+    if (isUniversity) {
+      return { isValid: true, type: 'university', reason: 'Email universitaire détecté' };
+    }
+
+    return { 
+      isValid: false, 
+      reason: 'Seuls Gmail et emails universitaires marocains acceptés',
+      type: null
+    };
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsLoading(true);
     setMessage('');
 
+    // ✅ VALIDATION EMAIL
+    const emailCheck = validateEmailSimple(email);
+    if (!emailCheck.isValid) {
+      setMessage(`❌ ${emailCheck.reason}`);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       const url = isRegisterMode ? 
-        'http://127.0.0.1:5000/api/auth/register' : 
-        'http://127.0.0.1:5000/api/auth/login';
+        'http://localhost:5000/api/auth/register' : 
+        'http://localhost:5000/api/auth/login';
       
       const body = isRegisterMode ? 
-        { nom, email, password } : 
+        { nom, email, password, studentInfo } : 
         { email, password };
 
       const response = await fetch(url, {
@@ -32,21 +95,14 @@ const Login = ({ onLogin }) => {
       const data = await response.json();
 
       if (response.ok) {
-        if (isRegisterMode) {
-          setMessage('Compte créé avec succès ! Vous pouvez maintenant vous connecter.');
-          // Basculer vers le mode connexion après inscription réussie
-          setTimeout(() => {
-            setIsRegisterMode(false);
-            setMessage('');
-            setNom('');
-          }, 2000);
-        } else {
-          setMessage('Connexion réussie !');
+        setMessage(data.msg);
+        
+        // Connexion automatique après inscription/connexion réussie
+        setTimeout(() => {
           onLogin(data.user, data.token);
-        }
+        }, 1500);
       } else {
-       setMessage(data.msg || `Erreur ${isRegisterMode ? "d'inscription" : 'de connexion'}`);
-
+        setMessage(data.msg || `Erreur ${isRegisterMode ? "d'inscription" : 'de connexion'}`);
       }
     } catch (error) {
       setMessage('Erreur de connexion au serveur');
@@ -55,46 +111,45 @@ const Login = ({ onLogin }) => {
     }
   };
 
-  const toggleMode = () => {
-    setIsRegisterMode(!isRegisterMode);
-    setMessage('');
+  const resetForm = () => {
     setEmail('');
     setPassword('');
     setNom('');
+    setStudentInfo({ university: '', faculty: '', city: '' });
   };
+
+  const toggleMode = () => {
+    setIsRegisterMode(!isRegisterMode);
+    setMessage('');
+    resetForm();
+  };
+
+  // Obtenir l'état de l'email
+  const emailStatus = validateEmailSimple(email);
 
   return (
     <div style={{
       minHeight: '100vh',
       backgroundColor: '#0f172a',
       color: 'white',
-      padding: '0',
-      margin: '0',
-      fontFamily: 'Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-      fontSize: '14px',
-      lineHeight: '1.5'
+      fontFamily: 'Inter, sans-serif',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '20px'
     }}>
-      {/* Container principal avec largeur contrôlée */}
       <div style={{
-        maxWidth: '1400px',
-        margin: '0 auto',
-        minHeight: '100vh',
+        maxWidth: '1200px',
+        width: '100%',
         display: 'grid',
         gridTemplateColumns: '1fr 1fr',
-        alignItems: 'center',
-        gap: '80px',
-        padding: '40px'
+        gap: '60px',
+        alignItems: 'center'
       }}>
         
         {/* Section gauche - Présentation */}
-        <div style={{
-          padding: '60px 40px',
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center'
-        }}>
-          {/* Logo et titre */}
-          <div style={{ marginBottom: '48px' }}>
+        <div style={{ padding: '40px' }}>
+          <div style={{ marginBottom: '40px' }}>
             <div style={{
               display: 'flex',
               alignItems: 'center',
@@ -102,233 +157,96 @@ const Login = ({ onLogin }) => {
               marginBottom: '20px'
             }}>
               <div style={{
-                width: '52px',
-                height: '52px',
+                width: '50px',
+                height: '50px',
                 backgroundColor: '#2563eb',
-                borderRadius: '14px',
+                borderRadius: '12px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '28px',
-                fontWeight: '700',
-                color: 'white'
+                fontSize: '24px'
               }}>
-                F
+                FT
               </div>
               <h1 style={{
-                fontSize: '36px',
+                fontSize: '32px',
                 fontWeight: '700',
                 margin: '0',
                 background: 'linear-gradient(135deg, #2563eb, #0891b2)',
                 WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                letterSpacing: '-0.02em'
+                WebkitTextFillColor: 'transparent'
               }}>
                 FocusTâche
               </h1>
             </div>
             <p style={{
-              fontSize: '20px',
+              fontSize: '18px',
               color: '#94a3b8',
-              margin: '0',
-              fontWeight: '400'
+              margin: '0'
             }}>
-              La gestion de tâches pour étudiants
+              🇲🇦 Gestion de tâches pour étudiants marocains
             </p>
           </div>
 
-          {/* Description principale */}
-          <div style={{ marginBottom: '48px' }}>
+          <div style={{ marginBottom: '40px' }}>
             <h2 style={{
-              fontSize: '32px',
+              fontSize: '28px',
               fontWeight: '600',
               color: 'white',
-              marginBottom: '24px',
-              lineHeight: '1.25',
-              letterSpacing: '-0.01em'
+              marginBottom: '20px',
+              lineHeight: '1.3'
             }}>
-              Organisez vos études, maximisez votre productivité et atteignez vos objectifs académiques
+              Organisez vos études universitaires facilement
             </h2>
             <p style={{
-              fontSize: '18px',
+              fontSize: '16px',
               color: '#cbd5e1',
-              lineHeight: '1.6',
-              marginBottom: '0',
-              fontWeight: '400'
+              lineHeight: '1.6'
             }}>
-              Notre plateforme conçue spécialement pour les étudiants vous aide à gérer vos projets, révisions et deadlines de manière efficace.
+              Gérez vos cours, TD, TP, devoirs, révisions et projets.
+              Simple, efficace et adapté aux universités marocaines.
             </p>
           </div>
 
-          {/* Fonctionnalités */}
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: '24px',
-            marginBottom: '48px'
-          }}>
-            {[
-              {
-                title: 'Collaboration en équipe',
-                desc: 'Partagez vos tâches avec vos collègues et travaillez ensemble'
-              },
-              {
-                title: 'Notifications intelligentes',
-                desc: 'Recevez des rappels par email et dans l\'application'
-              },
-              {
-                title: 'Statistiques détaillées',
-                desc: 'Analysez votre productivité par matière et par jour'
-              },
-              {
-                title: 'Export PDF',
-                desc: 'Exportez vos données vers Google Drive automatiquement'
-              }
-            ].map((feature, index) => (
-              <div key={index} style={{
-                padding: '20px',
-                backgroundColor: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
-                borderRadius: '12px',
-                transition: 'all 0.2s ease'
-              }}>
-                <h3 style={{
-                  fontSize: '16px',
-                  fontWeight: '600',
-                  color: 'white',
-                  marginBottom: '8px',
-                  lineHeight: '1.4'
-                }}>
-                  {feature.title}
-                </h3>
-                <p style={{
-                  fontSize: '14px',
-                  color: '#94a3b8',
-                  lineHeight: '1.5',
-                  margin: '0',
-                  fontWeight: '400'
-                }}>
-                  {feature.desc}
-                </p>
-              </div>
-            ))}
-          </div>
-
-          {/* Statistiques */}
-          <div style={{
-            display: 'flex',
-            gap: '40px',
-            padding: '32px',
-            backgroundColor: 'rgba(255, 255, 255, 0.04)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            borderRadius: '16px'
-          }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{
-                fontSize: '32px',
-                fontWeight: '700',
-                color: '#3b82f6',
-                lineHeight: '1',
-                marginBottom: '8px'
-              }}>
-                500+
-              </div>
-              <div style={{
-                fontSize: '14px',
-                color: '#94a3b8',
-                fontWeight: '500'
-              }}>
-                Étudiants actifs
-              </div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{
-                fontSize: '32px',
-                fontWeight: '700',
-                color: '#10b981',
-                lineHeight: '1',
-                marginBottom: '8px'
-              }}>
-                25h
-              </div>
-              <div style={{
-                fontSize: '14px',
-                color: '#94a3b8',
-                fontWeight: '500'
-              }}>
-                Temps économisé
-              </div>
-            </div>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{
-                fontSize: '32px',
-                fontWeight: '700',
-                color: '#10b981',
-                lineHeight: '1',
-                marginBottom: '8px'
-              }}>
-                94%
-              </div>
-              <div style={{
-                fontSize: '14px',
-                color: '#94a3b8',
-                fontWeight: '500'
-              }}>
-                Satisfaction
-              </div>
-            </div>
-          </div>
+      
         </div>
 
-        {/* Section droite - Formulaire de connexion/inscription */}
+        {/* Section droite - Formulaire */}
         <div style={{
           display: 'flex',
           justifyContent: 'center',
-          alignItems: 'center',
-          padding: '40px'
+          alignItems: 'center'
         }}>
           <div style={{
             width: '100%',
-            maxWidth: '420px',
+            maxWidth: '400px',
             backgroundColor: '#1e293b',
-            padding: '48px',
+            padding: '40px',
             borderRadius: '20px',
             border: '1px solid #334155',
             boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
           }}>
-            <div style={{ textAlign: 'center', marginBottom: '40px' }}>
+            <div style={{ textAlign: 'center', marginBottom: '32px' }}>
               <h2 style={{
-                fontSize: '32px',
+                fontSize: '24px',
                 fontWeight: '700',
                 color: 'white',
-                marginBottom: '12px',
-                letterSpacing: '-0.01em'
+                marginBottom: '8px'
               }}>
                 {isRegisterMode ? 'Inscription' : 'Connexion'}
               </h2>
               <p style={{
                 color: '#94a3b8',
-                fontSize: '16px',
-                fontWeight: '400'
+                fontSize: '14px'
               }}>
-                {isRegisterMode ? 'Créez votre compte étudiant' : 'Connectez-vous à votre espace'}
+                {isRegisterMode ? 'Créez votre compte étudiant' : 'Accédez à votre espace'}
               </p>
             </div>
 
             <form onSubmit={handleSubmit}>
-              {/* Champ Nom - seulement en mode inscription */}
+              {/* Champs inscription */}
               {isRegisterMode && (
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '10px',
-                    color: '#cbd5e1',
-                    fontSize: '15px',
-                    fontWeight: '500'
-                  }}>
-                    Nom complet
-                  </label>
+                <>
                   <input
                     type="text"
                     value={nom}
@@ -336,234 +254,176 @@ const Login = ({ onLogin }) => {
                     required={isRegisterMode}
                     style={{
                       width: '100%',
-                      padding: '16px 18px',
+                      padding: '12px 16px',
+                      marginBottom: '16px',
                       backgroundColor: 'rgba(255, 255, 255, 0.08)',
                       border: '1px solid rgba(255, 255, 255, 0.12)',
-                      borderRadius: '10px',
+                      borderRadius: '8px',
                       color: 'white',
-                      fontSize: '16px',
-                      outline: 'none',
-                      transition: 'all 0.2s ease',
-                      fontWeight: '400'
+                      fontSize: '14px',
+                      outline: 'none'
                     }}
-                    placeholder="Votre nom complet"
-                    onFocus={(e) => {
-                      e.target.style.borderColor = '#3b82f6';
-                      e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
-                    }}
-                    onBlur={(e) => {
-                      e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                      e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
-                    }}
+                    placeholder="Nom complet"
                   />
+
+                  {/* CNE - Supprimé */}
+
+                  <select
+                    value={studentInfo.university}
+                    onChange={(e) => setStudentInfo(prev => ({ ...prev, university: e.target.value }))}
+                    required={isRegisterMode}
+                    style={{
+                      width: '100%',
+                      padding: '12px 16px',
+                      marginBottom: '16px',
+                      backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      borderRadius: '8px',
+                      color: 'white',
+                      fontSize: '14px',
+                      outline: 'none'
+                    }}
+                  >
+                    <option value="" style={{ color: '#000' }}>Université</option>
+                    {universities.map(uni => (
+                      <option key={uni} value={uni} style={{ color: '#000' }}>{uni}</option>
+                    ))}
+                  </select>
+
+          
+
+            
+                </>
+              )}
+
+              {/* Email */}
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  marginBottom: '8px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  border: `1px solid ${emailStatus.isValid ? '#16a34a' : 
+                    email ? '#dc2626' : 'rgba(255, 255, 255, 0.12)'}`,
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+                placeholder="Email (Gmail ou universitaire)"
+              />
+
+              {/* ✅ INDICATEUR EMAIL */}
+              {email && (
+                <div style={{
+                  fontSize: '12px',
+                  marginBottom: '16px',
+                  padding: '8px',
+                  borderRadius: '4px',
+                  backgroundColor: emailStatus.isValid ? 
+                    'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
+                  color: emailStatus.isValid ? '#10b981' : '#ef4444'
+                }}>
+                  {emailStatus.isValid ? 
+                    `✅ ${emailStatus.reason}` : 
+                    `❌ ${emailStatus.reason}`
+                  }
                 </div>
               )}
 
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '10px',
-                  color: '#cbd5e1',
-                  fontSize: '15px',
-                  fontWeight: '500'
-                }}>
-                  Adresse Gmail
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '16px 18px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '16px',
-                    outline: 'none',
-                    transition: 'all 0.2s ease',
-                    fontWeight: '400'
-                  }}
-                  placeholder="votre-email@gmail.com"
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#3b82f6';
-                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
-                  }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '32px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '10px',
-                  color: '#cbd5e1',
-                  fontSize: '15px',
-                  fontWeight: '500'
-                }}>
-                  Mot de passe
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  style={{
-                    width: '100%',
-                    padding: '16px 18px',
-                    backgroundColor: 'rgba(255, 255, 255, 0.08)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    borderRadius: '10px',
-                    color: 'white',
-                    fontSize: '16px',
-                    outline: 'none',
-                    transition: 'all 0.2s ease',
-                    fontWeight: '400'
-                  }}
-                  placeholder={isRegisterMode ? 'Choisissez un mot de passe' : 'Votre mot de passe'}
-                  onFocus={(e) => {
-                    e.target.style.borderColor = '#3b82f6';
-                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.12)';
-                  }}
-                  onBlur={(e) => {
-                    e.target.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                    e.target.style.backgroundColor = 'rgba(255, 255, 255, 0.08)';
-                  }}
-                />
-              </div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                style={{
+                  width: '100%',
+                  padding: '12px 16px',
+                  marginBottom: '20px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  borderRadius: '8px',
+                  color: 'white',
+                  fontSize: '14px',
+                  outline: 'none'
+                }}
+                placeholder="Mot de passe"
+              />
 
               <button
                 type="submit"
-                disabled={isLoading}
+                disabled={isLoading || (email && !emailStatus.isValid)}
                 style={{
                   width: '100%',
-                  padding: '16px',
-                  background: isRegisterMode ? 
-                    'linear-gradient(135deg, #10b981, #059669)' : 
-                    'linear-gradient(135deg, #2563eb, #0891b2)',
+                  padding: '12px',
+                  background: (isLoading || (email && !emailStatus.isValid)) ? 
+                    '#4b5563' : 'linear-gradient(135deg, #2563eb, #0891b2)',
                   color: 'white',
                   border: 'none',
-                  borderRadius: '10px',
-                  fontSize: '16px',
+                  borderRadius: '8px',
+                  fontSize: '14px',
                   fontWeight: '600',
-                  cursor: isLoading ? 'not-allowed' : 'pointer',
-                  opacity: isLoading ? 0.7 : 1,
-                  transition: 'all 0.2s ease',
-                  transform: isLoading ? 'none' : 'scale(1)',
-                  boxShadow: isRegisterMode ? 
-                    '0 8px 25px 0 rgba(16, 185, 129, 0.3)' : 
-                    '0 8px 25px 0 rgba(37, 99, 235, 0.3)'
-                }}
-                onMouseEnter={(e) => {
-                  if (!isLoading) {
-                    e.target.style.transform = 'translateY(-1px)';
-                    e.target.style.boxShadow = isRegisterMode ? 
-                      '0 12px 30px 0 rgba(16, 185, 129, 0.4)' : 
-                      '0 12px 30px 0 rgba(37, 99, 235, 0.4)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!isLoading) {
-                    e.target.style.transform = 'translateY(0)';
-                    e.target.style.boxShadow = isRegisterMode ? 
-                      '0 8px 25px 0 rgba(16, 185, 129, 0.3)' : 
-                      '0 8px 25px 0 rgba(37, 99, 235, 0.3)';
-                  }
+                  cursor: (isLoading || (email && !emailStatus.isValid)) ? 'not-allowed' : 'pointer',
+                  opacity: (isLoading || (email && !emailStatus.isValid)) ? 0.7 : 1
                 }}
               >
                 {isLoading ? 
-                  (isRegisterMode ? 'Création...' : 'Connexion...') : 
-                  (isRegisterMode ? 'Créer mon compte' : 'Se connecter')
+                  (isRegisterMode ? 'Inscription...' : 'Connexion...') : 
+                  (isRegisterMode ? 'S\'inscrire' : 'Se connecter')
                 }
               </button>
             </form>
 
             {message && (
               <div style={{
-                marginTop: '24px',
-                padding: '16px 20px',
-                borderRadius: '10px',
-                backgroundColor: message.includes('réussie') || message.includes('succès') ?
+                marginTop: '16px',
+                padding: '12px',
+                borderRadius: '8px',
+                backgroundColor: message.includes('succès') || message.includes('réussie') || message.includes('🎓') || message.includes('📧') ?
                   'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)',
-                border: `1px solid ${message.includes('réussie') || message.includes('succès') ?
+                border: `1px solid ${message.includes('succès') || message.includes('réussie') || message.includes('🎓') || message.includes('📧') ?
                   'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
-                color: message.includes('réussie') || message.includes('succès') ? '#6ee7b7' : '#fca5a5',
+                color: message.includes('succès') || message.includes('réussie') || message.includes('🎓') || message.includes('📧') ? '#6ee7b7' : '#fca5a5',
                 textAlign: 'center',
-                fontSize: '15px',
-                fontWeight: '500'
+                fontSize: '13px'
               }}>
                 {message}
               </div>
             )}
 
-            <div style={{ marginTop: '32px', textAlign: 'center' }}>
+            <div style={{ marginTop: '20px', textAlign: 'center' }}>
               <p style={{
                 color: '#94a3b8',
-                fontSize: '15px',
-                marginBottom: '20px',
-                fontWeight: '400'
+                fontSize: '14px'
               }}>
-                {isRegisterMode ? 'Déjà un compte ?' : 'Nouveau sur FocusTâche ?'}{' '}
+                {isRegisterMode ? 'Déjà inscrit ?' : 'Nouveau sur FocusTâche ?'}{' '}
                 <span 
                   onClick={toggleMode}
                   style={{ 
                     color: '#3b82f6', 
                     cursor: 'pointer',
-                    fontWeight: '500',
                     textDecoration: 'underline'
                   }}
                 >
-                  {isRegisterMode ? 'Se connecter' : 'Créer un compte'}
+                  {isRegisterMode ? 'Se connecter' : 'S\'inscrire'}
                 </span>
               </p>
-              <div style={{
-                padding: '20px',
-                backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                borderRadius: '10px',
-                border: '1px solid rgba(59, 130, 246, 0.15)'
-              }}>
-                <p style={{
-                  color: '#93c5fd',
-                  fontSize: '14px',
-                  margin: '0',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  gap: '8px',
-                  fontWeight: '500'
-                }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/>
-                  </svg>
-                  Authentification sécurisée via Gmail uniquement
-                </p>
-              </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Version mobile - responsive */}
+      {/* Responsive */}
       <style>
         {`
           @media (max-width: 1024px) {
-            .login-container {
+            div[style*="grid-template-columns: 1fr 1fr"] {
               grid-template-columns: 1fr !important;
               gap: 40px !important;
-              padding: 20px !important;
-            }
-            
-            .login-left {
-              text-align: center !important;
-            }
-            
-            .features-grid {
-              grid-template-columns: 1fr !important;
             }
           }
         `}

@@ -8,7 +8,8 @@ const NoteSchema = new mongoose.Schema({
   },
   content: {
     type: String,
-    required: true
+    required: false, // Changé de true à false
+    default: ''      // Valeur par défaut
   },
   owner: {
     type: mongoose.Schema.Types.ObjectId,
@@ -16,7 +17,7 @@ const NoteSchema = new mongoose.Schema({
     required: true
   }
 }, {
-  timestamps: true  // createdAt, updatedAt
+  timestamps: true
 });
 
 export default mongoose.model("Note", NoteSchema);

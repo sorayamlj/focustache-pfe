@@ -23,9 +23,9 @@ export const getNote = async (req, res) => {
 
 // POST /api/notes
 export const createNote = async (req, res) => {
-  const { title, content } = req.body;
-  if (!title || !content) {
-    return res.status(400).json({ msg: "Titre et contenu requis" });
+  const { title, content = '' } = req.body; // content par défaut vide
+  if (!title) {
+    return res.status(400).json({ msg: "Titre requis" });
   }
   try {
     const note = await Note.create({ title, content, owner: req.user.id });
@@ -34,6 +34,7 @@ export const createNote = async (req, res) => {
     res.status(500).json({ msg: "Erreur création note", err });
   }
 };
+
 
 // PUT /api/notes/:id
 export const updateNote = async (req, res) => {

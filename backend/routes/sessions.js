@@ -5,6 +5,7 @@ import Task from '../models/Task.js';
 import Session from '../models/Session.js';
 import { verifyToken } from '../middleware/authMiddleware.js';
 
+
 const router = express.Router();
 
 // Fonction utilitaire pour calculer l'efficacité

@@ -3,23 +3,11 @@ import {
   Edit3, 
   Plus, 
   X, 
-  FileText, 
-  BookOpen, 
-  Target, 
-  Calendar, 
-  Activity, 
-  Clock, 
-  Link, 
-  Paperclip,
   Upload,
-  CheckCircle,
-  XCircle,
-  AlertCircle,
   Info
 } from 'lucide-react';
 
 const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, setAttachedFile, uploadingFile, setUploadingFile }) => {
-  // Obtenir la date d'aujourd'hui au format YYYY-MM-DD
   const getTodayDate = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -35,15 +23,13 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
     priorite: editingTask?.priorite || 'moyenne',
     statut: editingTask?.statut || 'à faire',
     dateEcheance: editingTask?.dateEcheance ? editingTask.dateEcheance.split('T')[0] : getTodayDate(),
-    dureeEstimee: editingTask?.dureeEstimee || '',
+    categorie: editingTask?.categorie || 'universitaire',
     lien: editingTask?.lien || '',
     fichierUrl: editingTask?.fichierUrl || ''
   });
 
-  // États pour la validation
   const [errors, setErrors] = useState({});
 
-  // Initialiser attachedFile avec la valeur existante si on édite
   React.useEffect(() => {
     if (editingTask?.fichierUrl) {
       setAttachedFile(editingTask.fichierUrl);
@@ -58,7 +44,7 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
         fichierUrl: ''
       }));
     }
-  }, [editingTask, setAttachedFile]);
+  }, [editingTask]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -67,7 +53,6 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
       [name]: value
     }));
     
-    // Effacer l'erreur du champ modifié
     if (errors[name]) {
       setErrors(prev => ({
         ...prev,
@@ -76,7 +61,6 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
     }
   };
 
-  // Validation côté client
   const validateForm = () => {
     const newErrors = {};
     
@@ -113,7 +97,6 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
     const file = e.target.files[0];
     if (!file) return;
 
-    // Vérifier la taille (max 10MB)
     if (file.size > 10 * 1024 * 1024) {
       alert('Le fichier est trop volumineux (max 10MB)');
       return;
@@ -139,14 +122,12 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
 
       const result = await response.json();
       
-      // Mettre à jour les deux states
       setAttachedFile(result.fileUrl);
       setFormData(prev => ({
         ...prev,
         fichierUrl: result.fileUrl
       }));
       
-      console.log('Fichier uploadé:', result.fileUrl);
       alert('Fichier uploadé avec succès !');
     } catch (error) {
       console.error('Erreur upload:', error);
@@ -159,13 +140,11 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    // Validation avant soumission
     if (!validateForm()) {
       alert('Veuillez corriger les erreurs dans le formulaire');
       return;
     }
     
-    console.log('Données envoyées:', formData);
     onSubmit(formData);
   };
 
@@ -174,75 +153,46 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
       onClose();
     }
     
-    // Ctrl+Enter pour valider rapidement
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
       handleSubmit(e);
     }
   };
 
-  const getPriorityIcon = (priority) => {
-    switch (priority) {
-      case 'haute': return <AlertCircle className="w-4 h-4 text-red-400" />;
-      case 'moyenne': return <Target className="w-4 h-4 text-yellow-400" />;
-      case 'basse': return <CheckCircle className="w-4 h-4 text-green-400" />;
-      default: return <Target className="w-4 h-4 text-gray-400" />;
-    }
-  };
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'à faire': return <FileText className="w-4 h-4 text-gray-400" />;
-      case 'en cours': return <Activity className="w-4 h-4 text-blue-400" />;
-      case 'terminée': return <CheckCircle className="w-4 h-4 text-green-400" />;
-      default: return <FileText className="w-4 h-4 text-gray-400" />;
-    }
-  };
-
   return (
     <div 
-      className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
       onKeyDown={handleKeyDown}
     >
-      <div className="bg-slate-800/95 backdrop-blur-md border border-white/10 rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl">
+      <div className="bg-gray-800 border border-gray-700 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-hidden">
         
         {/* Header */}
-        <div className="relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-blue-600/20 to-purple-600/20"></div>
-          <div className="relative flex items-center justify-between p-6 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
-                {editingTask ? <Edit3 className="w-5 h-5 text-white" /> : <Plus className="w-5 h-5 text-white" />}
-              </div>
-              <div>
-                <h2 className="text-2xl font-bold text-white">
-                  {editingTask ? 'Modifier la tâche' : 'Créer une nouvelle tâche'}
-                </h2>
-                <p className="text-slate-400 text-sm">
-                  Organisez votre travail efficacement
-                  <span className="ml-2 text-xs">
-                    <Info className="w-3 h-3 inline mr-1" />
-                    Ctrl+Enter pour sauvegarder rapidement
-                  </span>
-                </p>
-              </div>
+        <div className="flex items-center justify-between p-4 border-b border-gray-700">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-green-500 rounded flex items-center justify-center">
+              {editingTask ? <Edit3 className="w-4 h-4 text-white" /> : <Plus className="w-4 h-4 text-white" />}
             </div>
-            <button
-              onClick={onClose}
-              className="w-10 h-10 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all duration-200"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            <div>
+              <h2 className="text-xl font-bold text-white">
+                {editingTask ? 'Modifier la tâche' : 'Créer une nouvelle tâche'}
+              </h2>
+            
+            </div>
           </div>
+          <button
+            onClick={onClose}
+            className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-white hover:bg-gray-700 rounded"
+          >
+            <X className="w-4 h-4" />
+          </button>
         </div>
 
         {/* Form Content */}
-        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-180px)]">
-          <div className="p-6 space-y-6">
+        <form onSubmit={handleSubmit} className="overflow-y-auto max-h-[calc(90vh-140px)]">
+          <div className="p-4 space-y-4">
             
             {/* Titre */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <FileText className="w-4 h-4 text-blue-400" />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Titre de la tâche *
               </label>
               <input
@@ -251,41 +201,21 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
                 value={formData.titre}
                 onChange={handleInputChange}
                 required
-                className={`w-full p-4 bg-white/5 border rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-blue-500/50 transition-all duration-200 ${
-                  errors.titre 
-                    ? 'border-red-500/50 focus:ring-red-500/50' 
-                    : 'border-white/10 focus:ring-blue-500/50'
+                className={`w-full p-3 bg-gray-700 border rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                  errors.titre ? 'border-red-500' : 'border-gray-600'
                 }`}
                 placeholder="Ex: Réviser le cours d'algorithmique"
               />
               {errors.titre && (
-                <p className="text-red-400 text-sm flex items-center gap-1">
-                  <XCircle className="w-4 h-4" /> {errors.titre}
-                </p>
+                <p className="text-red-400 text-sm mt-1">{errors.titre}</p>
               )}
             </div>
 
-            {/* Description */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <FileText className="w-4 h-4 text-green-400" />
-                Description (optionnel)
-              </label>
-              <textarea
-                name="description"
-                value={formData.description}
-                onChange={handleInputChange}
-                rows="3"
-                className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500/50 focus:border-green-500/50 transition-all duration-200 resize-none"
-                placeholder="Description détaillée de la tâche..."
-              />
-            </div>
-
+        
             {/* Module et Priorité */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                  <BookOpen className="w-4 h-4 text-purple-400" />
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Module *
                 </label>
                 <input
@@ -294,23 +224,18 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
                   value={formData.module}
                   onChange={handleInputChange}
                   required
-                  className={`w-full p-4 bg-white/5 border rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-purple-500/50 transition-all duration-200 ${
-                    errors.module 
-                      ? 'border-red-500/50 focus:ring-red-500/50' 
-                      : 'border-white/10 focus:ring-purple-500/50'
+                  className={`w-full p-3 bg-gray-700 border rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                    errors.module ? 'border-red-500' : 'border-gray-600'
                   }`}
                   placeholder="Ex: Mathématiques, Informatique..."
                 />
                 {errors.module && (
-                  <p className="text-red-400 text-sm flex items-center gap-1">
-                    <XCircle className="w-4 h-4" /> {errors.module}
-                  </p>
+                  <p className="text-red-400 text-sm mt-1">{errors.module}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                  <Target className="w-4 h-4 text-orange-400" />
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Priorité *
                 </label>
                 <select
@@ -318,25 +243,20 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
                   value={formData.priorite}
                   onChange={handleInputChange}
                   required
-                  className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-orange-500/50 focus:border-orange-500/50 transition-all duration-200"
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
-                  <option value="basse" className="bg-slate-800">Basse</option>
-                  <option value="moyenne" className="bg-slate-800">Moyenne</option>
-                  <option value="haute" className="bg-slate-800">Haute</option>
+                  <option value="basse">Basse</option>
+                  <option value="moyenne">Moyenne</option>
+                  <option value="haute">Haute</option>
                 </select>
-                <div className="flex items-center gap-1 text-xs text-slate-400">
-                  {getPriorityIcon(formData.priorite)}
-                  <span>Priorité sélectionnée: {formData.priorite}</span>
-                </div>
               </div>
             </div>
 
             {/* Date d'échéance et Statut */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                  <Calendar className="w-4 h-4 text-pink-400" />
-                  Date d'échéance *
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Deadline *
                 </label>
                 <input
                   type="date"
@@ -344,22 +264,17 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
                   value={formData.dateEcheance}
                   onChange={handleInputChange}
                   required
-                  className={`w-full p-4 bg-white/5 border rounded-xl text-white focus:outline-none focus:ring-2 focus:border-pink-500/50 transition-all duration-200 ${
-                    errors.dateEcheance 
-                      ? 'border-red-500/50 focus:ring-red-500/50' 
-                      : 'border-white/10 focus:ring-pink-500/50'
+                  className={`w-full p-3 bg-gray-700 border rounded text-white focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                    errors.dateEcheance ? 'border-red-500' : 'border-gray-600'
                   }`}
                 />
                 {errors.dateEcheance && (
-                  <p className="text-red-400 text-sm flex items-center gap-1">
-                    <XCircle className="w-4 h-4" /> {errors.dateEcheance}
-                  </p>
+                  <p className="text-red-400 text-sm mt-1">{errors.dateEcheance}</p>
                 )}
               </div>
 
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                  <Activity className="w-4 h-4 text-cyan-400" />
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
                   Statut *
                 </label>
                 <select
@@ -367,46 +282,41 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
                   value={formData.statut}
                   onChange={handleInputChange}
                   required
-                  className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-cyan-500/50 focus:border-cyan-500/50 transition-all duration-200"
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-green-500"
                 >
-                  <option value="à faire" className="bg-slate-800">À faire</option>
-                  <option value="en cours" className="bg-slate-800">En cours</option>
-                  <option value="terminée" className="bg-slate-800">Terminée</option>
+                  <option value="à faire">À faire</option>
+                  <option value="en cours">En cours</option>
+                  <option value="terminée">Terminée</option>
                 </select>
-                <div className="flex items-center gap-1 text-xs text-slate-400">
-                  {getStatusIcon(formData.statut)}
-                  <span>Statut sélectionné: {formData.statut}</span>
-                </div>
               </div>
             </div>
 
-            {/* Durée estimée */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <Clock className="w-4 h-4 text-yellow-400" />
-                Durée estimée (en minutes)
+            {/* Catégorie */}
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Catégorie *
               </label>
-              <input
-                type="number"
-                name="dureeEstimee"
-                value={formData.dureeEstimee}
+              <select
+                name="categorie"
+                value={formData.categorie}
                 onChange={handleInputChange}
-                min="0"
-                className="w-full p-4 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 focus:border-yellow-500/50 transition-all duration-200"
-                placeholder="Ex: 120"
-              />
-              {formData.dureeEstimee && (
-                <p className="text-yellow-400 text-xs flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  Durée estimée: {Math.floor(formData.dureeEstimee / 60)}h {formData.dureeEstimee % 60}min
-                </p>
-              )}
+                required
+                className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white focus:outline-none focus:ring-2 focus:ring-green-500"
+              >
+                <option value="universitaire">Universitaire</option>
+                <option value="para-universitaire">Para-universitaire</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                {formData.categorie === 'universitaire' 
+                  ? 'Activité liée aux études formelles' 
+                  : 'Activité complémentaire (clubs, associations, etc.)'
+                }
+              </p>
             </div>
 
             {/* Lien externe */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <Link className="w-4 h-4 text-blue-400" />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Lien externe (optionnel)
               </label>
               <input
@@ -414,42 +324,37 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
                 name="lien"
                 value={formData.lien}
                 onChange={handleInputChange}
-                className={`w-full p-4 bg-white/5 border rounded-xl text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:border-blue-500/50 transition-all duration-200 ${
-                  errors.lien 
-                    ? 'border-red-500/50 focus:ring-red-500/50' 
-                    : 'border-white/10 focus:ring-blue-500/50'
+                className={`w-full p-3 bg-gray-700 border rounded text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 ${
+                  errors.lien ? 'border-red-500' : 'border-gray-600'
                 }`}
                 placeholder="https://example.com"
               />
               {errors.lien && (
-                <p className="text-red-400 text-sm flex items-center gap-1">
-                  <XCircle className="w-4 h-4" /> {errors.lien}
-                </p>
+                <p className="text-red-400 text-sm mt-1">{errors.lien}</p>
               )}
             </div>
 
             {/* Upload de fichier */}
-            <div className="space-y-3">
-              <label className="flex items-center gap-2 text-sm font-semibold text-slate-300">
-                <Paperclip className="w-4 h-4 text-emerald-400" />
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
                 Fichier attaché (optionnel)
               </label>
               
               {attachedFile && (
-                <div className="flex items-center gap-3 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl">
-                  <div className="w-10 h-10 bg-emerald-500/20 rounded-lg flex items-center justify-center">
-                    <Paperclip className="w-4 h-4 text-emerald-400" />
+                <div className="flex items-center gap-3 p-3 bg-green-500/20 border border-green-500/30 rounded mb-3">
+                  <div className="w-8 h-8 bg-green-500/30 rounded flex items-center justify-center">
+                    <span className="text-green-400">📎</span>
                   </div>
                   <div className="flex-1">
                     <a
                       href={attachedFile}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-emerald-300 hover:text-emerald-200 transition-colors font-medium"
+                      className="text-green-300 hover:text-green-200 font-medium"
                     >
                       Fichier attaché
                     </a>
-                    <p className="text-emerald-400/70 text-xs">Cliquez pour ouvrir</p>
+                    <p className="text-green-400/70 text-xs">Cliquez pour ouvrir</p>
                   </div>
                   <button
                     type="button"
@@ -460,7 +365,7 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
                         fichierUrl: ''
                       }));
                     }}
-                    className="w-8 h-8 flex items-center justify-center text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-all duration-200"
+                    className="w-6 h-6 flex items-center justify-center text-red-400 hover:text-red-300 hover:bg-red-500/20 rounded"
                   >
                     <X className="w-4 h-4" />
                   </button>
@@ -473,20 +378,20 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
                   onChange={handleFileUpload}
                   disabled={uploadingFile}
                   accept=".pdf,.doc,.docx,.txt,.jpg,.jpeg,.png,.gif"
-                  className="w-full p-4 bg-white/5 border-2 border-dashed border-white/20 rounded-xl text-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-emerald-600 file:text-white file:font-medium hover:file:bg-emerald-700 file:cursor-pointer transition-all duration-200 hover:border-white/30"
+                  className="w-full p-3 bg-gray-700 border border-gray-600 rounded text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:bg-green-600 file:text-white file:font-medium hover:file:bg-green-700 file:cursor-pointer"
                 />
                 
                 {uploadingFile && (
-                  <div className="absolute inset-0 bg-white/5 rounded-xl flex items-center justify-center">
-                    <div className="flex items-center gap-3 text-blue-400">
-                      <Upload className="w-5 h-5 animate-pulse" />
+                  <div className="absolute inset-0 bg-gray-700/80 rounded flex items-center justify-center">
+                    <div className="flex items-center gap-2 text-green-400">
+                      <Upload className="w-4 h-4 animate-pulse" />
                       <span className="font-medium">Upload en cours...</span>
                     </div>
                   </div>
                 )}
               </div>
               
-              <p className="text-slate-400 text-xs flex items-center gap-2">
+              <p className="text-gray-400 text-xs mt-1 flex items-center gap-1">
                 <Info className="w-3 h-3" />
                 Formats supportés: PDF, Word, Images (max 10MB)
               </p>
@@ -495,21 +400,20 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
         </form>
 
         {/* Footer avec boutons */}
-        <div className="p-6 border-t border-white/10 bg-slate-800/50 flex-shrink-0">
+        <div className="p-4 border-t border-gray-700 bg-gray-800">
           <div className="flex gap-3">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-4 px-6 bg-slate-700/80 hover:bg-slate-600 text-slate-300 hover:text-white font-semibold rounded-xl transition-all duration-200 border border-slate-600/50 flex items-center justify-center gap-2"
+              className="flex-1 py-3 px-4 bg-gray-700 hover:bg-gray-600 text-gray-300 hover:text-white font-medium rounded border border-gray-600"
             >
-              <X className="w-4 h-4" />
               Annuler
             </button>
             <button
               type="submit"
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="flex-1 py-4 px-6 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 disabled:from-blue-800 disabled:to-purple-800 disabled:cursor-not-allowed text-white font-semibold rounded-xl transition-all duration-200 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:transform-none"
+              className="flex-1 py-3 px-4 bg-green-600 hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed text-white font-medium rounded"
             >
               {isSubmitting ? (
                 <span className="flex items-center justify-center gap-2">
@@ -525,13 +429,6 @@ const TaskForm = ({ editingTask, onSubmit, onClose, isSubmitting, attachedFile, 
             </button>
           </div>
           
-          {/* Aide supplémentaire */}
-          <div className="mt-3 text-center">
-            <p className="text-slate-400 text-xs flex items-center justify-center gap-1">
-              <Info className="w-3 h-3" />
-              Utilisez <kbd className="px-1 py-0.5 bg-slate-700 rounded text-xs">Échap</kbd> pour fermer ou <kbd className="px-1 py-0.5 bg-slate-700 rounded text-xs">Ctrl+Enter</kbd> pour sauvegarder
-            </p>
-          </div>
         </div>
       </div>
     </div>
